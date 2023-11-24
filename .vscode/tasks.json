@@ -8,12 +8,15 @@
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",
+                "-I", 
+                "/usr/include/freetype2",
                 "-o",
-                "${fileDirname}/${fileBasenameNoExtension}",
+                "${fileDirname}/${fileBasenameNoExtension}.exec",
                 "-lGLEW",
                 "-lGLU",
                 "-lGL", 
-                "`pkg-config --static --libs glfw3`"
+                "`pkg-config --static --libs glfw3`",
+                "-lfreetype",
             ],
             "options": {
                 "cwd": "${fileDirname}"
