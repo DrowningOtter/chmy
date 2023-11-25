@@ -1,40 +1,32 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
-def gershgorin_bounds(matrix):
-    n = matrix.shape[0]
-    bounds = []
+# Создаем матрицу
+file_path = '../SLAU_var_2.csv'
+matrix = np.loadtxt(file_path, delimiter=',')
 
-    for i in range(n):
-        center = matrix[i, i]
-        radius = np.sum(np.abs(matrix[i, :])) - np.abs(center)
-        bounds.append((center, radius))
+# Получаем количество строк в матрице
+n = len(matrix)
 
-    return bounds
+# Создаем список для хранения оценок Гершгорина
+gerggorin_bounds = []
 
-# Создание симметричной положительно определенной матрицы
-A = np.array([[4, -1, 0, -1],
-              [-1, 4, -1, 0],
-              [0, -1, 4, -1],
-              [-1, 0, -1, 4]])
+# Проходим по каждой строке матрицы
+for i in range(n):
+    # Вычисляем центр круга Гершгорина (диагональный элемент)
+    center = matrix[i, i]
+    
+    # Вычисляем радиус круга Гершгорина (сумма абсолютных значений остальных элементов в строке)
+    radius = np.sum(np.abs(matrix[i, :])) - np.abs(center)
+    
+    # Добавляем оценку в список
+    gerggorin_bounds.append((center, radius))
 
-# Получение оценок Гершгорина
-bounds = gershgorin_bounds(A)
+# Выводим оценки Гершгорина
+for i, bounds in enumerate(gerggorin_bounds):
+    print(f"Круг Гершгорина {i + 1}: Центр = {bounds[0]}, Радиус = {bounds[1]}")
 
-# Печать оценок
-for i, (center, radius) in enumerate(bounds):
-    print(f"Eigenvalue {i + 1} lies in the circle with center {center} and radius {radius}.")
+# Получаем собственные значения матрицы
+eigenvalues = np.linalg.eigvals(matrix)
 
-# Визуализация
-fig, ax = plt.subplots()
-for center, radius in bounds:
-    circle = plt.Circle((center, 0), radius, fill=False, color='r', linestyle='dashed')
-    ax.add_patch(circle)
-
-# Подписи и оси
-ax.set_aspect('equal', adjustable='datalim')
-ax.set_xlabel('Real')
-ax.set_ylabel('Imaginary')
-plt.title('Gershgorin Bounds for Eigenvalues')
-plt.grid(True)
-plt.show()
+# Выводим собственные значения матрицы
+print("Спектр матрицы (собственные значения):", eigenvalues)

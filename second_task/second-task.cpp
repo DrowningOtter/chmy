@@ -327,12 +327,14 @@ std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A
         if (sum > lambdaMax) lambdaMax = sum;
         if (sum < lambdaMin) lambdaMin = sum;
     }
+    lambdaMax = 84.0, lambdaMax = 48.0;
     double tau0 = 2.0 / (lambdaMax + lambdaMin);
     double ro = (lambdaMax - lambdaMin) / (lambdaMax + lambdaMin);
 
     std::vector<double> tau_parameters = optim_iterative_parameters_set(maxIterations);
     for (int k = 0; k < maxIterations; ++k) {
         double tau = tau0 / (1 - tau_parameters[k + 1] * ro);
+        // double tau = 2.0 / (lambdaMax + lambdaMin);
         for (int i = 0; i < n; ++i) {
             double sum = 0.0;
             for (int j = 0; j < n; ++j) {
@@ -384,15 +386,15 @@ int main_main() {
     //     {9, 9, 16, 15, 16},
     //     {9, 17, 11, 16, 21},
     // };
-    std::vector<std::vector<double>> A = {
-        {6, 0, 1, 1, 0},
-        {0, 5, 0, 1, 0},
-        {1, 0, 6, 1, 0},
-        {1, 1, 1, 6, 1},
-        {0, 0, 0, 1, 5},
-    };
-    // std::string filename = "../SLAU_var_2.csv";
-    // std::vector<std::vector<double>> A = read_csv(filename);
+    // std::vector<std::vector<double>> A = {
+    //     {6, 0, 1, 1, 0},
+    //     {0, 5, 0, 1, 0},
+    //     {1, 0, 6, 1, 0},
+    //     {1, 1, 1, 6, 1},
+    //     {0, 0, 0, 1, 5},
+    // };
+    std::string filename = "../SLAU_var_2.csv";
+    std::vector<std::vector<double>> A = read_csv(filename);
     std::vector<double> x = generate_random_vect(A.size());
     std::vector<double> F;
     try 
@@ -414,7 +416,7 @@ int main_main() {
     // std::cout << "Погрешность решения прямым методом по второй норме: " << norm2(x_computed - x) << std::endl;
 
     // Задайте параметры метода
-    int maxIterations = 131072;
+    int maxIterations = 16384;
     //64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152
     double tolerance = norm2(x_computed - x);
 
@@ -445,7 +447,7 @@ int main1()
 
 int main()
 {
-    // main_main();
-    main1();
+    main_main();
+    // main1();
     return 0;
 }
