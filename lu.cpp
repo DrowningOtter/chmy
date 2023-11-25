@@ -12,23 +12,6 @@ enum
     RIGHT_BOUND = 1
 };
 
-std::ostream& operator<<(std::ostream &out, const std::vector<std::vector<double>> &v) {
-    for (auto &it : v) {
-        for (auto &it2 : it) {
-            out << it2 << " ";
-        }
-        out << "\n";
-    }
-    return out;
-}
-
-std::ostream& operator<<(std::ostream &out, const std::vector<double> &v) {
-    for (auto &it : v) {
-        out << it << " ";
-    }
-    return out;
-}
-
 // Функция для выполнения LU-разложения
 void LU_decomposition(std::vector<std::vector<double>>& A, std::vector<std::vector<double>>& L, std::vector<std::vector<double>>& U)
 {
@@ -138,31 +121,31 @@ std::vector<double> generate_random_vect(int s)
     return v;
 }
 
-int main()
-{
-    std::string filename = "./SLAU_var_2.csv";
-    std::vector<std::vector<double>> A = read_csv(filename);
+// int main()
+// {
+//     std::string filename = "./SLAU_var_2.csv";
+//     std::vector<std::vector<double>> A = read_csv(filename);
     
-    // LU-разложение
-    std::vector<std::vector<double>> L;
-    std::vector<std::vector<double>> U;
-    std::vector<std::vector<double>> tmp_A = A;
-    LU_decomposition(tmp_A, L, U);
+//     // LU-разложение
+//     std::vector<std::vector<double>> L;
+//     std::vector<std::vector<double>> U;
+//     std::vector<std::vector<double>> tmp_A = A;
+//     LU_decomposition(tmp_A, L, U);
 
-    // генерация решения
-    std::vector<double> x = generate_random_vect(A.size());
+//     // генерация решения
+//     std::vector<double> x = generate_random_vect(A.size());
 
-    // Вычисление правой части системы
-    std::vector<double> f = matrix_vector_multiply(A, x);
+//     // Вычисление правой части системы
+//     std::vector<double> f = matrix_vector_multiply(A, x);
 
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    // Решение системы линейных уравнений
-    std::vector<double> x_computed = solve_system(L, U, f);
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+//     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+//     // Решение системы линейных уравнений
+//     std::vector<double> x_computed = solve_system(L, U, f);
+//     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
-    std::cout << "||x_true - x_computed|| = " << max_norm(x - x_computed) << std::endl;
-    std::cout << "time in microseconds spent to find solution: " <<
-    std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << std::endl;
+//     std::cout << "||x_true - x_computed|| = " << max_norm(x - x_computed) << std::endl;
+//     std::cout << "time in microseconds spent to find solution: " <<
+//     std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << std::endl;
     
-    return 0;
-}
+//     return 0;
+// }
