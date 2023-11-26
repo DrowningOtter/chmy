@@ -44,14 +44,14 @@ linspace(std::vector<T> &v, float start, float stop, int amount)
 }
 
 void
-create_scale_matrix(float matrix[], int nrows, float scaleX, float scaleY, float scaleZ = 1.0f)
+create_model_matrix(float matrix[], int nrows, float scaleX, float scaleY, float translateX = 0.0f, float translateY = 0.0f)
 {
-    float scaling[] = {scaleX, scaleY, scaleZ, 1.0f};
-    // int nrows = sizeof(matrix) / sizeof(matrix[0]);
-    for (int i = 0; i < nrows; ++i)
-    {
-        matrix[i * nrows + i] = scaling[i];
-    }
+    matrix[0] = scaleX;
+    matrix[5] = scaleY;
+    matrix[10] = 1.0f;
+    matrix[12] = translateX;
+    matrix[13] = translateY;
+    matrix[15] = 1.0f;
 }
 
 // Перегрузки операторов
@@ -117,7 +117,7 @@ operator-(const std::vector<T> &v1, const std::vector<T> &v2)
 }
 
 
-int draw_plot(std::vector<float> X, std::vector<float> Y, float scaleX, float scaleY)
+int draw_plot(std::vector<float> coords, float scaleX, float scaleY, float translateX=0.0f, float translateY=0.0f)
 {
     // Инициализация GLFW
     if (!glfwInit())
@@ -200,13 +200,13 @@ int draw_plot(std::vector<float> X, std::vector<float> Y, float scaleX, float sc
     };
 
     // Добавляем координаты для отрисовки координатных осей
-    if (X.size() != Y.size()) throw "Input arrays must have same size!\n";
-    std::vector<GLfloat> coords(X.size() + Y.size());
-    for (int i = 0; i < X.size(); ++i)
-    {
-        coords[2 * i] = X[i];
-        coords[2 * i + 1] = Y[i];
-    }
+    // if (X.size() != Y.size()) throw "Input arrays must have same size!\n";
+    // std::vector<GLfloat> coords(X.size() + Y.size());
+    // for (int i = 0; i < X.size(); ++i)
+    // {
+    //     coords[2 * i] = X[i];
+    //     coords[2 * i + 1] = Y[i];
+    // }
     coords.insert(coords.end(), axis_vertices.begin(), axis_vertices.end());
 
     // Буфер вершин
@@ -237,7 +237,7 @@ int draw_plot(std::vector<float> X, std::vector<float> Y, float scaleX, float sc
         // масштабирование
         GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
         float scale_matrix[16] = {0};
-        create_scale_matrix(scale_matrix, 4, scaleX, scaleY);
+        create_model_matrix(scale_matrix, 4, scaleX, scaleY, translateX, translateY);
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, scale_matrix);
         if ((success = glGetError()) != 0) std::cerr << success << ":0" << std::endl;
 
@@ -263,14 +263,17 @@ int draw_plot(std::vector<float> X, std::vector<float> Y, float scaleX, float sc
     return 0;
 }
 
-
 int test_draw()
 {
     std::vector<float> data;
-    linspace(data, -4, 4, 100);
-    std::vector<float> values(data.begin(), data.end());
-    std::for_each(values.begin(), values.end(), [&](float &x){x = sin(x);});
-    draw_plot(data, values, 0.2f, 0.5f);
+    linspace(data, 0, 100, 20000);
+    std::vector<float> coords(data.size() * 2);
+    for (int i = 0; i < data.size(); ++i)
+    {
+        coords[2 * i] = data[i];
+        coords[2 * i + 1] = sin(data[i]);
+    }
+    draw_plot(data, 0.2f, 0.5f);
     return 0;
 }
 
@@ -300,7 +303,7 @@ optim_iterative_parameters_set(int n)
     auto theta = theta_set_construction(n);
     for (int i = 1; i <= n; ++i)
     {
-        ret[i] = -cos(M_PI * theta[i] / (n * 2));
+        ret[i] = cos(M_PI * theta[i] / (n * 2));
     }
     return ret;
 }
@@ -308,10 +311,13 @@ optim_iterative_parameters_set(int n)
 // Решение системы линейных уравнений методом Чебышева
 std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A,
                                        const std::vector<double>& F,
+                                       std::vector<float> &statX,
+                                       std::vector<float> &statY,
                                        int maxIterations, double tolerance=1e-4)
 {
     if (A.size() != A[0].size()) throw "Matrix should be n*n!\n";
     if ((maxIterations & (maxIterations - 1)) != 0) throw "maxIterations argument should be power of 2";
+    statX.resize(maxIterations), statY.resize(maxIterations);
     int n = A.size();
     std::vector<double> x(n, 0.0);
     std::vector<double> xPrev(n, 0.0);
@@ -327,7 +333,7 @@ std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A
         if (sum > lambdaMax) lambdaMax = sum;
         if (sum < lambdaMin) lambdaMin = sum;
     }
-    lambdaMax = 84.0, lambdaMax = 48.0;
+    // lambdaMax = 84.0, lambdaMax = 48.0;
     double tau0 = 2.0 / (lambdaMax + lambdaMin);
     double ro = (lambdaMax - lambdaMin) / (lambdaMax + lambdaMin);
 
@@ -358,7 +364,8 @@ std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A
             std::cout << "Converged in " << k + 1 << " iterations." << std::endl;
             return x;
         }
-
+        statX[k] = k;
+        statY[k] = normResidual;
         xPrev = x;
     }
 
@@ -379,13 +386,13 @@ norm2(const std::vector<double> &v1)
 
 int main_main() {
     // Задайте матрицу A и вектор F
-    // std::vector<std::vector<double>> A = {
-    //     {25, 16, 11, 9, 9},
-    //     {16, 24, 8, 9, 17},
-    //     {11, 8, 19, 16, 11},
-    //     {9, 9, 16, 15, 16},
-    //     {9, 17, 11, 16, 21},
-    // };
+    std::vector<std::vector<double>> A = {
+        {25, 16, 11, 9, 9},
+        {16, 24, 8, 9, 17},
+        {11, 8, 19, 16, 11},
+        {9, 9, 16, 15, 16},
+        {9, 17, 11, 16, 21},
+    };
     // std::vector<std::vector<double>> A = {
     //     {6, 0, 1, 1, 0},
     //     {0, 5, 0, 1, 0},
@@ -393,8 +400,8 @@ int main_main() {
     //     {1, 1, 1, 6, 1},
     //     {0, 0, 0, 1, 5},
     // };
-    std::string filename = "../SLAU_var_2.csv";
-    std::vector<std::vector<double>> A = read_csv(filename);
+    // std::string filename = "../SLAU_var_2.csv";
+    // std::vector<std::vector<double>> A = read_csv(filename);
     std::vector<double> x = generate_random_vect(A.size());
     std::vector<double> F;
     try 
@@ -413,15 +420,34 @@ int main_main() {
     LU_decomposition(tmp_A, L, U);
 
     std::vector<double> x_computed = solve_system(L, U, F);
-    // std::cout << "Погрешность решения прямым методом по второй норме: " << norm2(x_computed - x) << std::endl;
+    std::cout << "Погрешность решения прямым методом по второй норме: " << norm2(x_computed - x) << std::endl;
 
     // Задайте параметры метода
-    int maxIterations = 16384;
+    int maxIterations = 4096;
     //64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152
     double tolerance = norm2(x_computed - x);
 
     // Решение системы линейных уравнений методом Чебышева
-    std::vector<double> solution = chebyshevIteration(A, F, maxIterations, tolerance);
+    std::vector<float> statX, statY;
+    std::vector<double> solution = chebyshevIteration(A, F, statX, statY, maxIterations, tolerance);
+
+    // Построение графика
+    int num_of_dots_for_plot = 100;
+    int step = statX.size() / num_of_dots_for_plot;
+    std::vector<float> data(num_of_dots_for_plot * 2);
+    float quantile = 0.9;
+    float normX = maxIterations;
+    std::vector<float> sorted_y;
+    std::copy(statY.begin(), statY.end(), std::back_inserter(sorted_y));
+    std::sort(sorted_y.begin(), sorted_y.end());
+    float normY = sorted_y[static_cast<int>(quantile * (sorted_y.size() - 1))];
+    normY = *std::max_element(statY.begin(), statY.end());
+    for (int i = 0; i < num_of_dots_for_plot; ++i)
+    {
+        data[2 * i] = statX[i * step] / normX;
+        data[2 * i + 1] = statY[i * step + 1] / normY;
+    }
+    draw_plot(data, 1.9f, 1.8f, -0.9f, -0.9f);
 
     // std::cout << "Решение прямым методом: " << x_computed << std::endl;
     // std::cout << "Решение методом Чебышева: " << solution << std::endl;
@@ -449,5 +475,6 @@ int main()
 {
     main_main();
     // main1();
+    // test_draw();
     return 0;
 }
