@@ -116,6 +116,18 @@ operator-(const std::vector<T> &v1, const std::vector<T> &v2)
     return ret;
 }
 
+template<typename T>
+std::vector<T>
+operator+(const std::vector<T> &v1, const std::vector<T> &v2)
+{
+    if (v1.size() != v2.size()) throw "Vectors sizes doesnt match";
+    std::vector<T> ret(v1.size());
+    for (int i = 0; i < v1.size(); ++i)
+    {
+        ret[i] = v1[i] + v2[i];
+    }
+    return ret;
+}
 
 int draw_plot(std::vector<float> coords, float scaleX, float scaleY, float translateX=0.0f, float translateY=0.0f)
 {
@@ -308,71 +320,6 @@ optim_iterative_parameters_set(int n)
     return ret;
 }
 
-// Решение системы линейных уравнений методом Чебышева
-std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A,
-                                       const std::vector<double>& F,
-                                       std::vector<float> &statX,
-                                       std::vector<float> &statY,
-                                       int maxIterations, double tolerance=1e-4)
-{
-    if (A.size() != A[0].size()) throw "Matrix should be n*n!\n";
-    if ((maxIterations & (maxIterations - 1)) != 0) throw "maxIterations argument should be power of 2";
-    statX.resize(maxIterations), statY.resize(maxIterations);
-    int n = A.size();
-    std::vector<double> x(n, 0.0);
-    std::vector<double> xPrev(n, 0.0);
-
-    // Находим максимальное и минимальное собственные значения матрицы A
-    double lambdaMax = 0.0;
-    double lambdaMin = 0.0;
-    for (int i = 0; i < n; ++i) {
-        double sum = 0.0;
-        for (int j = 0; j < n; ++j) {
-            sum += std::abs(A[i][j]);
-        }
-        if (sum > lambdaMax) lambdaMax = sum;
-        if (sum < lambdaMin) lambdaMin = sum;
-    }
-    // lambdaMax = 84.0, lambdaMax = 48.0;
-    double tau0 = 2.0 / (lambdaMax + lambdaMin);
-    double ro = (lambdaMax - lambdaMin) / (lambdaMax + lambdaMin);
-
-    std::vector<double> tau_parameters = optim_iterative_parameters_set(maxIterations);
-    for (int k = 0; k < maxIterations; ++k) {
-        double tau = tau0 / (1 - tau_parameters[k + 1] * ro);
-        // double tau = 2.0 / (lambdaMax + lambdaMin);
-        for (int i = 0; i < n; ++i) {
-            double sum = 0.0;
-            for (int j = 0; j < n; ++j) {
-                sum += A[i][j] * xPrev[j];
-            }
-            x[i] = xPrev[i] + tau * (F[i] - sum);
-        }
-
-        // Проверка на сходимость
-        double normResidual = 0.0;
-        for (int i = 0; i < n; ++i) {
-            double sum = 0.0;
-            for (int j = 0; j < n; ++j) {
-                sum += A[i][j] * x[j];
-            }
-            normResidual += std::pow(F[i] - sum, 2);
-        }
-        normResidual = std::sqrt(normResidual);
-
-        if (normResidual < tolerance) {
-            std::cout << "Converged in " << k + 1 << " iterations." << std::endl;
-            return x;
-        }
-        statX[k] = k;
-        statY[k] = normResidual;
-        xPrev = x;
-    }
-
-    std::cout << "Did not converge within the specified number of iterations." << std::endl;
-    return x;
-}
-
 double
 norm2(const std::vector<double> &v1)
 {
@@ -384,34 +331,67 @@ norm2(const std::vector<double> &v1)
     return sqrt(ans);
 }
 
+// Решение системы линейных уравнений методом Чебышева
+std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A,
+                                       const std::vector<double>& F,
+                                       std::vector<float> &statX,
+                                       std::vector<float> &statY,
+                                       int maxIterations,
+                                       std::vector<double> &x_true)
+{
+    if (A.size() != A[0].size()) throw "Matrix should be n*n!\n";
+    if ((maxIterations & (maxIterations - 1)) != 0) throw "maxIterations argument should be power of 2";
+    statX.resize(maxIterations), statY.resize(maxIterations);
+    int n = A.size();
+    std::vector<double> x(n, 0.0);
+    std::vector<double> xPrev(n, 0.0);
+
+    // Оценка для собственных значений с помощью теоремы Гершгорина
+    double lambdaMax = 0.0;
+    double lambdaMin = 0.0;
+    for (int i = 0; i < A.size(); ++i)
+    {
+        double sum_abs_not_diag = 0.0;
+        for (int j = 0; j < A[0].size(); ++j)
+        {
+            if (i != j) sum_abs_not_diag += std::fabs(A[i][j]);
+        }
+        if (i == 0) {
+            lambdaMin = sum_abs_not_diag;
+        } else if (lambdaMin > sum_abs_not_diag) lambdaMin = A[i][i] - sum_abs_not_diag;
+        if (A[i][i] + sum_abs_not_diag > lambdaMax) lambdaMax = A[i][i] + sum_abs_not_diag;
+    }
+
+    double tau0 = 2.0 / (lambdaMax + lambdaMin);
+    double ro = (lambdaMax - lambdaMin) / (lambdaMax + lambdaMin);
+
+    std::vector<double> tau_parameters = optim_iterative_parameters_set(maxIterations);
+    for (int k = 0; k < maxIterations; ++k) {
+        double tau = tau0 / (1 - tau_parameters[k + 1] * ro);
+        for (int i = 0; i < n; ++i) {
+            double sum = 0.0;
+            for (int j = 0; j < n; ++j) {
+                sum += A[i][j] * xPrev[j];
+            }
+            x[i] = xPrev[i] + tau * (F[i] - sum);
+        }
+
+        statX[k] = k;
+        statY[k] = norm2(F - A * x);
+        xPrev = x;
+    }
+
+    return x;
+}
+
 int main_main() {
-    // Задайте матрицу A и вектор F
-    std::vector<std::vector<double>> A = {
-        {25, 16, 11, 9, 9},
-        {16, 24, 8, 9, 17},
-        {11, 8, 19, 16, 11},
-        {9, 9, 16, 15, 16},
-        {9, 17, 11, 16, 21},
-    };
-    // std::vector<std::vector<double>> A = {
-    //     {6, 0, 1, 1, 0},
-    //     {0, 5, 0, 1, 0},
-    //     {1, 0, 6, 1, 0},
-    //     {1, 1, 1, 6, 1},
-    //     {0, 0, 0, 1, 5},
-    // };
-    // std::string filename = "../SLAU_var_2.csv";
-    // std::vector<std::vector<double>> A = read_csv(filename);
+    std::string filename = "../SLAU_var_2.csv";
+    std::vector<std::vector<double>> A = read_csv(filename);
+    for (int i = 0; i < A.size(); i++) ++A[i][i];
     std::vector<double> x = generate_random_vect(A.size());
     std::vector<double> F;
-    try 
-    {
-        F = A * x;
-    }
-    catch (const char* str)
-    {
-        std::cerr << std::string(str) << std::endl;
-    }
+    try { F = A * x; }
+    catch (const char* str) { std::cerr << std::string(str) << std::endl; }
 
     // LU-разложение
     std::vector<std::vector<double>> L;
@@ -420,16 +400,24 @@ int main_main() {
     LU_decomposition(tmp_A, L, U);
 
     std::vector<double> x_computed = solve_system(L, U, F);
-    std::cout << "Погрешность решения прямым методом по второй норме: " << norm2(x_computed - x) << std::endl;
+    double direct_method_error = norm2(x_computed - x);
+    std::cout << "Погрешность решения прямым методом по второй норме: " << direct_method_error << std::endl;
 
-    // Задайте параметры метода
-    int maxIterations = 4096;
-    //64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144 524288 1048576 2097152
-    double tolerance = norm2(x_computed - x);
-
-    // Решение системы линейных уравнений методом Чебышева
+    // Метод Чебышева
+    int pow_of_two = 0;
     std::vector<float> statX, statY;
-    std::vector<double> solution = chebyshevIteration(A, F, statX, statY, maxIterations, tolerance);
+    std::vector<double> solution(x.size(), 0);
+    int maxIterations = 0;
+    while (norm2(solution - x) >= direct_method_error)
+    {
+        ++pow_of_two;
+        statX.clear(), statY.clear();
+        maxIterations = pow(2, pow_of_two);
+        solution = chebyshevIteration(A, F, statX, statY, maxIterations, x);
+    }
+    statX.shrink_to_fit(), statY.shrink_to_fit();
+    // Решение системы линейных уравнений методом Чебышева
+    std::cout << "Погрешность решения методом Чебышева по второй норме: " << norm2(solution - x) << std::endl;
 
     // Построение графика
     int num_of_dots_for_plot = 100;
@@ -449,15 +437,10 @@ int main_main() {
     }
     draw_plot(data, 1.9f, 1.8f, -0.9f, -0.9f);
 
-    // std::cout << "Решение прямым методом: " << x_computed << std::endl;
-    // std::cout << "Решение методом Чебышева: " << solution << std::endl;
-    
-    std::cout << "Погрешность решения методом Чебышева по второй норме: " << norm2(solution - x) << std::endl;
-
     return 0;
 }
 
-int main1()
+int test_additional_funcs()
 {
     try{
         std::cout << (theta_set_construction(8) == std::vector<int>{0, 1, 15, 7, 9, 3, 13, 5, 11}) << std::endl;
@@ -471,10 +454,30 @@ int main1()
     return 0;
 }
 
+void
+test_matrix()
+{
+    std::string filename = "../SLAU_var_2.csv";
+    std::vector<std::vector<double>> A = read_csv(filename);
+    std::vector<double> sums(A.size());
+    for (int i = 0; i < A.size(); ++i)
+    {
+        double sum = 0.0;
+        for (int j = 0; j < A[0].size(); ++j)
+        {
+            if (i == j) continue;
+            sum += A[i][j];
+        }
+        sums[i] = A[i][i] - sum;
+        std::cout << "i = " << i << ", sum = " << sum << std::endl;
+    }
+    std::sort(sums.begin(), sums.end());
+    std::cout << sums[0] << " " << sums[sums.size() - 1] << std::endl;
+}
+
 int main()
 {
     main_main();
-    // main1();
-    // test_draw();
+    // test_matrix();
     return 0;
 }
