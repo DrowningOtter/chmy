@@ -25,9 +25,10 @@ const char* vertexShaderSource = R"(
 const char* fragmentShaderSource = R"(
     #version 330 core
     out vec4 FragColor;
+    uniform vec4 color;
     void main()
     {
-        FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+        FragColor = color;
     }
 )";
 
@@ -205,10 +206,10 @@ int draw_plot(std::vector<float> coords, float scaleX, float scaleY, float trans
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
 
     std::vector<GLfloat> axis_vertices = {
-        -1.0f * (GLfloat)windowWidth / (windowHeight * scaleX), 0.0f,
-        1.0f * (GLfloat)windowWidth / (windowHeight * scaleX), 0.0f,
-        0.0f, -1.0f * (GLfloat)windowWidth / (windowHeight * scaleY),
-        0.0f, 1.0f * (GLfloat)windowWidth / (windowHeight * scaleY)
+        -1.0f * (GLfloat)windowWidth / (windowHeight), 0.0f,
+        1.0f * (GLfloat)windowWidth / (windowHeight), 0.0f,
+        0.0f, -1.0f * (GLfloat)windowWidth / (windowHeight),
+        0.0f, 1.0f * (GLfloat)windowWidth / (windowHeight)
     };
 
     // Добавляем координаты для отрисовки координатных осей
@@ -252,11 +253,13 @@ int draw_plot(std::vector<float> coords, float scaleX, float scaleY, float trans
         create_model_matrix(scale_matrix, 4, scaleX, scaleY, translateX, translateY);
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, scale_matrix);
         if ((success = glGetError()) != 0) std::cerr << success << ":0" << std::endl;
-
+        GLuint colorLoc = glGetUniformLocation(shaderProgram, "color");
+        glUniform4f(colorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
         // Отрисовка графика
         glBindVertexArray(VAO);
         int num_of_dots = (coords.size() - axis_vertices.size()) / 2;
         glDrawArrays(GL_LINE_STRIP, 0, num_of_dots); // Отрисовка графика
+        glUniform4f(colorLoc, 1.0f, 0.0f, 0.0f, 1.0f);
         glDrawArrays(GL_LINES, num_of_dots, axis_vertices.size() / 2); // Отрисовка осей
         glBindVertexArray(0);
 
@@ -384,7 +387,7 @@ std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A
     return x;
 }
 
-int main_main() {
+int main() {
     std::string filename = "../SLAU_var_2.csv";
     std::vector<std::vector<double>> A = read_csv(filename);
     for (int i = 0; i < A.size(); i++) ++A[i][i];
@@ -418,66 +421,29 @@ int main_main() {
     statX.shrink_to_fit(), statY.shrink_to_fit();
     // Решение системы линейных уравнений методом Чебышева
     std::cout << "Погрешность решения методом Чебышева по второй норме: " << norm2(solution - x) << std::endl;
+    std::cout << "Относительная погрешность решения методом Чебышева по второй норме: " << norm2(solution - x) / norm2(x) << std::endl;
 
     // Построение графика
     int num_of_dots_for_plot = 100;
     int step = statX.size() / num_of_dots_for_plot;
     std::vector<float> data(num_of_dots_for_plot * 2);
-    float quantile = 0.9;
+    float quantile = 0.95;
     float normX = maxIterations;
     std::vector<float> sorted_y;
     std::copy(statY.begin(), statY.end(), std::back_inserter(sorted_y));
     std::sort(sorted_y.begin(), sorted_y.end());
     float normY = sorted_y[static_cast<int>(quantile * (sorted_y.size() - 1))];
     normY = *std::max_element(statY.begin(), statY.end());
+
+    float quantileX = 0.20;
+    normX = statX[static_cast<int>(quantileX * (statX.size() - 1))];
+
     for (int i = 0; i < num_of_dots_for_plot; ++i)
     {
         data[2 * i] = statX[i * step] / normX;
         data[2 * i + 1] = statY[i * step + 1] / normY;
     }
-    draw_plot(data, 1.9f, 1.8f, -0.9f, -0.9f);
+    draw_plot(data, 2.5f, 3.0f, -0.9f, -0.9f);
 
-    return 0;
-}
-
-int test_additional_funcs()
-{
-    try{
-        std::cout << (theta_set_construction(8) == std::vector<int>{0, 1, 15, 7, 9, 3, 13, 5, 11}) << std::endl;
-        std::cout << (theta_set_construction(16) == std::vector<int>{0, 1, 31, 15, 17, 7, 25, 9, 23, 3, 29, 13, 19, 5, 27, 11, 21}) << std::endl;
-        std::cout << (theta_set_construction(32) == std::vector<int>{0, 1, 63, 31, 33, 15, 49, 17, 47, 7, 57,
-        25, 39, 9, 55, 23, 41, 3, 61, 29, 35, 13, 51, 19, 45, 5, 59, 27, 37, 11, 53, 21, 43}) << std::endl;
-    }
-    catch (const char *str) {
-        std::cerr << std::string(str) << std::endl;
-    }
-    return 0;
-}
-
-void
-test_matrix()
-{
-    std::string filename = "../SLAU_var_2.csv";
-    std::vector<std::vector<double>> A = read_csv(filename);
-    std::vector<double> sums(A.size());
-    for (int i = 0; i < A.size(); ++i)
-    {
-        double sum = 0.0;
-        for (int j = 0; j < A[0].size(); ++j)
-        {
-            if (i == j) continue;
-            sum += A[i][j];
-        }
-        sums[i] = A[i][i] - sum;
-        std::cout << "i = " << i << ", sum = " << sum << std::endl;
-    }
-    std::sort(sums.begin(), sums.end());
-    std::cout << sums[0] << " " << sums[sums.size() - 1] << std::endl;
-}
-
-int main()
-{
-    main_main();
-    // test_matrix();
     return 0;
 }
