@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <iomanip>
 
 #include "../lu.cpp"
 
@@ -130,7 +131,7 @@ operator+(const std::vector<T> &v1, const std::vector<T> &v2)
     return ret;
 }
 
-int draw_plot(std::vector<float> coords, float scaleX, float scaleY, float translateX=0.0f, float translateY=0.0f)
+int draw_plot_raw(std::vector<float> coords, float scaleX, float scaleY, float translateX=0.0f, float translateY=0.0f)
 {
     // Инициализация GLFW
     if (!glfwInit())
@@ -278,19 +279,6 @@ int draw_plot(std::vector<float> coords, float scaleX, float scaleY, float trans
     return 0;
 }
 
-int test_draw()
-{
-    std::vector<float> data;
-    linspace(data, 0, 100, 20000);
-    std::vector<float> coords(data.size() * 2);
-    for (int i = 0; i < data.size(); ++i)
-    {
-        coords[2 * i] = data[i];
-        coords[2 * i + 1] = sin(data[i]);
-    }
-    draw_plot(data, 0.2f, 0.5f);
-    return 0;
-}
 
 // функция для постороения множества тетта, которое используется для генерации 
 // последовательности оптимальных итерационных параметров
@@ -334,6 +322,27 @@ norm2(const std::vector<double> &v1)
     return sqrt(ans);
 }
 
+// Функция для нахождения оценки собственных значений с помощью теоремы Гершгорина
+std::vector<double>
+eigenvalue_estimation(const std::vector<std::vector<double>> &A)
+{
+    double lambdaMax = 0.0;
+    double lambdaMin = 0.0;
+    for (int i = 0; i < A.size(); ++i)
+    {
+        double sum_abs_not_diag = 0.0;
+        for (int j = 0; j < A[0].size(); ++j)
+        {
+            if (i != j) sum_abs_not_diag += std::fabs(A[i][j]);
+        }
+        if (i == 0) {
+            lambdaMin = sum_abs_not_diag;
+        } else if (lambdaMin > sum_abs_not_diag) lambdaMin = A[i][i] - sum_abs_not_diag;
+        if (A[i][i] + sum_abs_not_diag > lambdaMax) lambdaMax = A[i][i] + sum_abs_not_diag;
+    }
+    return std::vector<double> {lambdaMin, lambdaMax};
+}
+
 // Решение системы линейных уравнений методом Чебышева
 std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A,
                                        const std::vector<double>& F,
@@ -350,20 +359,8 @@ std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A
     std::vector<double> xPrev(n, 0.0);
 
     // Оценка для собственных значений с помощью теоремы Гершгорина
-    double lambdaMax = 0.0;
-    double lambdaMin = 0.0;
-    for (int i = 0; i < A.size(); ++i)
-    {
-        double sum_abs_not_diag = 0.0;
-        for (int j = 0; j < A[0].size(); ++j)
-        {
-            if (i != j) sum_abs_not_diag += std::fabs(A[i][j]);
-        }
-        if (i == 0) {
-            lambdaMin = sum_abs_not_diag;
-        } else if (lambdaMin > sum_abs_not_diag) lambdaMin = A[i][i] - sum_abs_not_diag;
-        if (A[i][i] + sum_abs_not_diag > lambdaMax) lambdaMax = A[i][i] + sum_abs_not_diag;
-    }
+    std::vector<double> estim = eigenvalue_estimation(A);
+    double lambdaMin = estim[0], lambdaMax = estim[1];
 
     double tau0 = 2.0 / (lambdaMax + lambdaMin);
     double ro = (lambdaMax - lambdaMin) / (lambdaMax + lambdaMin);
@@ -387,42 +384,9 @@ std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A
     return x;
 }
 
-int main() {
-    std::string filename = "../SLAU_var_2.csv";
-    std::vector<std::vector<double>> A = read_csv(filename);
-    for (int i = 0; i < A.size(); i++) ++A[i][i];
-    std::vector<double> x = generate_random_vect(A.size());
-    std::vector<double> F;
-    try { F = A * x; }
-    catch (const char* str) { std::cerr << std::string(str) << std::endl; }
-
-    // LU-разложение
-    std::vector<std::vector<double>> L;
-    std::vector<std::vector<double>> U;
-    std::vector<std::vector<double>> tmp_A = A;
-    LU_decomposition(tmp_A, L, U);
-
-    std::vector<double> x_computed = solve_system(L, U, F);
-    double direct_method_error = norm2(x_computed - x);
-    std::cout << "Погрешность решения прямым методом по второй норме: " << direct_method_error << std::endl;
-
-    // Метод Чебышева
-    int pow_of_two = 0;
-    std::vector<float> statX, statY;
-    std::vector<double> solution(x.size(), 0);
-    int maxIterations = 0;
-    while (norm2(solution - x) >= direct_method_error)
-    {
-        ++pow_of_two;
-        statX.clear(), statY.clear();
-        maxIterations = pow(2, pow_of_two);
-        solution = chebyshevIteration(A, F, statX, statY, maxIterations, x);
-    }
-    statX.shrink_to_fit(), statY.shrink_to_fit();
-    // Решение системы линейных уравнений методом Чебышева
-    std::cout << "Погрешность решения методом Чебышева по второй норме: " << norm2(solution - x) << std::endl;
-    std::cout << "Относительная погрешность решения методом Чебышева по второй норме: " << norm2(solution - x) / norm2(x) << std::endl;
-
+void
+draw_plot(int maxIterations, const std::vector<double> &statX, const std::vector<double> &statY)
+{
     // Построение графика
     int num_of_dots_for_plot = 100;
     int step = statX.size() / num_of_dots_for_plot;
@@ -443,7 +407,59 @@ int main() {
         data[2 * i] = statX[i * step] / normX;
         data[2 * i + 1] = statY[i * step + 1] / normY;
     }
-    draw_plot(data, 2.5f, 3.0f, -0.9f, -0.9f);
+    draw_plot_raw(data, 2.5f, 3.0f, -0.9f, -0.9f);
+}
+
+int main() {
+    std::string filename = "../SLAU_var_2.csv";
+    std::vector<std::vector<double>> A = read_csv(filename);
+    for (int i = 0; i < A.size(); i++) ++A[i][i];
+    std::vector<double> x = generate_random_vect(A.size());
+    std::vector<double> F;
+    try { F = A * x; }
+    catch (const char* str) { std::cerr << std::string(str) << std::endl; }
+
+    // LU-разложение
+    std::vector<std::vector<double>> L;
+    std::vector<std::vector<double>> U;
+    std::vector<std::vector<double>> tmp_A = A;
+    LU_decomposition(tmp_A, L, U);
+
+    std::vector<double> x_computed = solve_system(L, U, F);
+    double direct_method_error = norm2(x_computed - x);
+
+    // Метод Чебышева
+    int pow_of_two = 0;
+    std::vector<float> statX, statY;
+    std::vector<double> solution(x.size(), 0);
+    int maxIterations = 0;
+    while (norm2(solution - x) >= direct_method_error)
+    {
+        ++pow_of_two;
+        statX.clear(), statY.clear();
+        maxIterations = pow(2, pow_of_two);
+        solution = chebyshevIteration(A, F, statX, statY, maxIterations, x);
+    }
+    statX.shrink_to_fit(), statY.shrink_to_fit();
+
+    std::cout << "Оценка спектра матрицы с помощью теоремы Гершгорина(минимальное, максимальное значения): " <<
+    eigenvalue_estimation(A) << std::endl;
+    std::cout << "Количество итераций метода Чебышева: " << maxIterations << std::endl;
+    std::cout << "Погрешность решения прямым методом по второй норме: " << direct_method_error << std::endl;
+    std::cout << "Погрешность решения методом Чебышева по второй норме: " << norm2(solution - x) << std::endl;
+    std::cout << "Относительная погрешность решения методом Чебышева по второй норме: " << norm2(solution - x) / norm2(x) << std::endl;
+
+    // Сохраним данные в csv файлы для отрисовки графика в Python
+    std::ofstream fileX("statX.csv");
+    for (const auto &value : statX)
+    {
+        fileX << value << ",";
+    }
+    std::ofstream fileY("statY.csv");
+    for (const auto &value : statY)
+    {
+        fileY << value << ",";
+    }
 
     return 0;
 }

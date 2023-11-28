@@ -2,3 +2,4 @@
 test.cpp
 *.py
 second_task_with_ImGui/
+!draw_plot.py
