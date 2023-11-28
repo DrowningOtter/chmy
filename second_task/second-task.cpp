@@ -1,39 +1,11 @@
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-
 #include <iostream>
 #include <cmath>
 #include <vector>
 #include <map>
 #include <algorithm>
-#include <iomanip>
 
 // Импорт кода из первого задания(прямого метода)
 #include "../lu.cpp"
-
-// Вершинный шейдер
-const char* vertexShaderSource = R"(
-    #version 330 core
-    layout (location = 0) in vec2 aPos;
-    uniform mat4 model; // для масштабирования картинки
-
-    void main()
-    {
-        gl_Position = model * vec4(aPos.x, aPos.y, 0.0, 1.0);
-    }
-)";
-
-// Фрагментный шейдер
-const char* fragmentShaderSource = R"(
-    #version 330 core
-    out vec4 FragColor;
-    uniform vec4 color;
-    void main()
-    {
-        FragColor = color;
-    }
-)";
-
 
 template<typename T>
 void
@@ -44,17 +16,6 @@ linspace(std::vector<T> &v, float start, float stop, int amount)
     for (int i = 0; i < v.size(); ++i) {
         v[i] = start + step * i;
     }
-}
-
-void
-create_model_matrix(float matrix[], int nrows, float scaleX, float scaleY, float translateX = 0.0f, float translateY = 0.0f)
-{
-    matrix[0] = scaleX;
-    matrix[5] = scaleY;
-    matrix[10] = 1.0f;
-    matrix[12] = translateX;
-    matrix[13] = translateY;
-    matrix[15] = 1.0f;
 }
 
 // Перегрузки операторов
@@ -131,155 +92,6 @@ operator+(const std::vector<T> &v1, const std::vector<T> &v2)
     }
     return ret;
 }
-
-int draw_plot_raw(std::vector<float> coords, float scaleX, float scaleY, float translateX=0.0f, float translateY=0.0f)
-{
-    // Инициализация GLFW
-    if (!glfwInit())
-    {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
-        return -1;
-    }
-
-    // Создание окна
-    GLFWwindow* window = glfwCreateWindow(1000,700, "Graph", NULL, NULL);
-    if (window == NULL)
-    {
-        std::cerr << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
-
-    glfwMakeContextCurrent(window);
-
-    // Инициализация GLEW
-    if (glewInit() != GLEW_OK)
-    {
-        std::cerr << "Failed to initialize GLEW" << std::endl;
-        return -1;
-    }
-
-    // Компиляция и связывание шейдеров
-    GLuint vertexShader, fragmentShader, textFragmentShader, textVertexShader;
-    GLuint shaderProgram, textShaderProgram;
-    GLint success;
-    GLchar infoLog[512];
-
-    // Вершинный шейдер
-    vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cerr << "Vertex shader compilation failed\n" << infoLog << std::endl;
-        return -1;
-    }
-
-    // Фрагментный шейдер
-    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cerr << "Fragment shader compilation failed\n" << infoLog << std::endl;
-        return -1;
-    }
-
-    // Привязка шейдеров к программе
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if (!success)
-    {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cerr << "Shader program linking failed\n" << infoLog << std::endl;
-        return -1;
-    }
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-    int windowWidth, windowHeight;
-    glfwGetWindowSize(window, &windowWidth, &windowHeight);
-
-    std::vector<GLfloat> axis_vertices = {
-        -1.0f * (GLfloat)windowWidth / (windowHeight), 0.0f,
-        1.0f * (GLfloat)windowWidth / (windowHeight), 0.0f,
-        0.0f, -1.0f * (GLfloat)windowWidth / (windowHeight),
-        0.0f, 1.0f * (GLfloat)windowWidth / (windowHeight)
-    };
-
-    // Добавляем координаты для отрисовки координатных осей
-    // if (X.size() != Y.size()) throw "Input arrays must have same size!\n";
-    // std::vector<GLfloat> coords(X.size() + Y.size());
-    // for (int i = 0; i < X.size(); ++i)
-    // {
-    //     coords[2 * i] = X[i];
-    //     coords[2 * i + 1] = Y[i];
-    // }
-    coords.insert(coords.end(), axis_vertices.begin(), axis_vertices.end());
-
-    // Буфер вершин
-    GLuint VBO, VAO;
-    glGenBuffers(1, &VBO);
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, coords.size() * sizeof(GLfloat), coords.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)0);
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    // Главный цикл приложения
-    while (!glfwWindowShouldClose(window))
-    {
-        // Обработка ввода
-        glfwPollEvents();
-  
-        // Очистка экрана
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        // Использование шейдерной программы
-        glUseProgram(shaderProgram);
-
-        // масштабирование
-        GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
-        float scale_matrix[16] = {0};
-        create_model_matrix(scale_matrix, 4, scaleX, scaleY, translateX, translateY);
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, scale_matrix);
-        if ((success = glGetError()) != 0) std::cerr << success << ":0" << std::endl;
-        GLuint colorLoc = glGetUniformLocation(shaderProgram, "color");
-        glUniform4f(colorLoc, 1.0f, 1.0f, 1.0f, 1.0f);
-        // Отрисовка графика
-        glBindVertexArray(VAO);
-        int num_of_dots = (coords.size() - axis_vertices.size()) / 2;
-        glDrawArrays(GL_LINE_STRIP, 0, num_of_dots); // Отрисовка графика
-        glUniform4f(colorLoc, 1.0f, 0.0f, 0.0f, 1.0f);
-        glDrawArrays(GL_LINES, num_of_dots, axis_vertices.size() / 2); // Отрисовка осей
-        glBindVertexArray(0);
-
-        // Показать результаты отрисовки
-        glfwSwapBuffers(window);
-    }
-
-    // Освобождение ресурсов
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteProgram(shaderProgram);
-
-    // Завершение работы GLFW
-    glfwTerminate();
-
-    return 0;
-}
-
 
 // функция для постороения множества тетта, которое используется для генерации 
 // последовательности оптимальных итерационных параметров
@@ -383,32 +195,6 @@ std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A
     }
 
     return x;
-}
-
-void
-draw_plot(int maxIterations, const std::vector<double> &statX, const std::vector<double> &statY)
-{
-    // Построение графика
-    int num_of_dots_for_plot = 100;
-    int step = statX.size() / num_of_dots_for_plot;
-    std::vector<float> data(num_of_dots_for_plot * 2);
-    float quantile = 0.95;
-    float normX = maxIterations;
-    std::vector<float> sorted_y;
-    std::copy(statY.begin(), statY.end(), std::back_inserter(sorted_y));
-    std::sort(sorted_y.begin(), sorted_y.end());
-    float normY = sorted_y[static_cast<int>(quantile * (sorted_y.size() - 1))];
-    normY = *std::max_element(statY.begin(), statY.end());
-
-    float quantileX = 0.20;
-    normX = statX[static_cast<int>(quantileX * (statX.size() - 1))];
-
-    for (int i = 0; i < num_of_dots_for_plot; ++i)
-    {
-        data[2 * i] = statX[i * step] / normX;
-        data[2 * i + 1] = statY[i * step + 1] / normY;
-    }
-    draw_plot_raw(data, 2.5f, 3.0f, -0.9f, -0.9f);
 }
 
 int main() {
