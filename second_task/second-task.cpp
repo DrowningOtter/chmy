@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <iomanip>
 
+// Импорт кода из первого задания(прямого метода)
 #include "../lu.cpp"
 
 // Вершинный шейдер

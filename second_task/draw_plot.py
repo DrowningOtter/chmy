@@ -11,7 +11,6 @@ assert dataX.shape[0] == dataY.shape[0], "Incorrect array sizes"
 not_nan_mask = ~np.isnan(dataY)
 dataY = dataY[not_nan_mask]
 dataX = dataX[not_nan_mask]
-# print(dataY.max(), dataX.max())
 plt.grid()
 plt.plot(dataX, dataY)
 plt.title("График второй нормы как функции номера итерации")
