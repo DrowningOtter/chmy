@@ -14,8 +14,9 @@ dataX = dataX[not_nan_mask]
 plt.figure(figsize=(11, 7))
 plt.grid()
 plt.plot(dataX, dataY)
-plt.title("График второй нормы как функции номера итерации")
-plt.xlabel("Номер итерации")
-plt.ylabel("Вторая норма погрешности")
+fontsize = 17
+plt.title("График второй нормы как функции номера итерации", fontsize=fontsize)
+plt.xlabel("Номер итерации", fontsize=fontsize)
+plt.ylabel("Вторая норма погрешности", fontsize=fontsize)
 plt.savefig("graph.png")
 plt.show()

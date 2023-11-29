@@ -7,17 +7,6 @@
 // Импорт кода из первого задания(прямого метода)
 #include "../lu.cpp"
 
-template<typename T>
-void
-linspace(std::vector<T> &v, float start, float stop, int amount)
-{
-    double step = (stop - start) / (amount - 1);
-    if (v.size() < amount) v.resize(amount);
-    for (int i = 0; i < v.size(); ++i) {
-        v[i] = start + step * i;
-    }
-}
-
 // Перегрузки операторов
 template<typename T>
 std::ostream& 
@@ -161,8 +150,7 @@ std::vector<double> chebyshevIteration(const std::vector<std::vector<double>>& A
                                        const std::vector<double>& F,
                                        std::vector<float> &statX,
                                        std::vector<float> &statY,
-                                       int maxIterations,
-                                       std::vector<double> &x_true)
+                                       int maxIterations)
 {
     if (A.size() != A[0].size()) throw "Matrix should be n*n!\n";
     if ((maxIterations & (maxIterations - 1)) != 0) throw "maxIterations argument should be power of 2";
@@ -225,7 +213,7 @@ int main() {
         ++pow_of_two;
         statX.clear(), statY.clear();
         maxIterations = pow(2, pow_of_two);
-        solution = chebyshevIteration(A, F, statX, statY, maxIterations, x);
+        solution = chebyshevIteration(A, F, statX, statY, maxIterations);
     }
     statX.shrink_to_fit(), statY.shrink_to_fit();
 
